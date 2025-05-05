@@ -36,7 +36,14 @@ export default function FaceDetection() {
 
     const startVideo = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+            // Using portrait orientation for better face capture
+            const constraints = {
+                video: {
+                    facingMode: "user",
+                    aspectRatio: { ideal: 9 / 16 }
+                }
+            };
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
             }
@@ -95,9 +102,9 @@ export default function FaceDetection() {
     };
 
     return (
-        <section className="py-12 bg-gradient-to-b from-black to-gray-900 min-h-screen">
+        <section className="py-6 md:py-12 bg-gradient-to-b from-black to-gray-900 min-h-screen">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-8">
+                <div className="text-center mb-6 md:mb-8">
                     <h2 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-emerald-600">Face Mood AI</h2>
                 </div>
 
@@ -108,31 +115,44 @@ export default function FaceDetection() {
                         </div>
                     ) : (
                         <div className="flex flex-col lg:flex-row items-center gap-8">
-                            <div className="relative w-full lg:w-2/3 aspect-video bg-black/50 rounded-xl overflow-hidden shadow-2xl border border-teal-900/50">
-                                <video
-                                    ref={videoRef}
-                                    onPlay={handleVideoPlay}
-                                    autoPlay
-                                    muted
-                                    playsInline
-                                    className="w-full h-full object-cover"
-                                />
-                                <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />
+                            {/* Mobile phone design container */}
+                            <div className="w-full lg:w-2/3 flex justify-center">
+                                <div className="relative w-64 md:w-80 aspect-[9/16] rounded-3xl bg-gray-800 p-3 shadow-2xl border-4 border-gray-700">
+                                    {/* Phone notch */}
+                                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-24 h-6 bg-black rounded-b-xl z-10"></div>
 
-                                {!isModelLoaded && !error && (
-                                    <div className="absolute inset-0 flex items-center justify-center bg-black/70">
-                                        <div className="text-center">
-                                            <svg className="animate-spin mx-auto h-10 w-10 text-teal-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            <p className="mt-2 text-teal-400 text-sm">Loading models...</p>
-                                        </div>
+                                    {/* Phone screen with video */}
+                                    <div className="relative w-full h-full bg-black rounded-2xl overflow-hidden">
+                                        <video
+                                            ref={videoRef}
+                                            onPlay={handleVideoPlay}
+                                            autoPlay
+                                            muted
+                                            playsInline
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />
+
+                                        {/* Loading overlay */}
+                                        {!isModelLoaded && !error && (
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+                                                <div className="text-center">
+                                                    <svg className="animate-spin mx-auto h-10 w-10 text-teal-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    <p className="mt-2 text-teal-400 text-sm">Loading models...</p>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
+
+                                    {/* Home button/indicator */}
+                                    <div className="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-32 h-1 bg-gray-600 rounded-full"></div>
+                                </div>
                             </div>
 
-                            <div className="w-full lg:w-1/3">
+                            <div className="w-full lg:w-1/3 mt-8 lg:mt-0">
                                 <AnimatedEmotionLogo mood={mapMoodToAnimationState(detectedMood)} />
 
                                 {detectedMood && (
@@ -165,7 +185,7 @@ function AnimatedEmotionLogo({ mood = 'neutral' }) {
 
     return (
         <div className="flex flex-col items-center">
-            <div className="relative w-64 h-64">
+            <div className="relative w-64 h-64 md:w-128 md:h-128">
                 <svg
                     viewBox="0 0 100 100"
                     xmlns="http://www.w3.org/2000/svg"
@@ -254,9 +274,9 @@ function AnimatedEmotionLogo({ mood = 'neutral' }) {
                 </svg>
             </div>
 
-            <div className="mt-4 text-center">
-                <span className="text-3xl font-bold text-white">Mood<span className="text-teal-500">Ingo</span></span>
-                <div className="text-xs text-teal-600">Emotional Intelligence AI</div>
+            <div className="mt-4 md:mt-6 text-center">
+                <span className="text-3xl md:text-5xl font-bold text-white">Mood<span className="text-teal-500">Ingo</span></span>
+                <div className="text-xs md:text-sm text-teal-600">Emotional Intelligence AI</div>
             </div>
         </div>
     );

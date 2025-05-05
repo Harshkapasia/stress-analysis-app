@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
-// Animated Logo Component
 function AnimatedEmotionLogo() {
     return (
         <div className="flex flex-col items-center">
-            <div className="relative w-64 h-64">
+            {/* Responsive sizing - smaller on mobile, larger on desktop */}
+            <div className="relative w-64 h-64 md:w-128 md:h-128">
                 <svg
                     viewBox="0 0 100 100"
                     xmlns="http://www.w3.org/2000/svg"
@@ -155,9 +155,10 @@ function AnimatedEmotionLogo() {
                 </svg>
             </div>
 
-            <div className="mt-4 text-center">
-                <span className="text-3xl font-bold text-white">Mood<span className="text-teal-500">Ingo</span></span>
-                <div className="text-xs text-teal-600">Emotional Intelligence AI</div>
+            {/* Responsive text sizing */}
+            <div className="mt-4 md:mt-6 text-center">
+                <span className="text-3xl md:text-5xl font-bold text-white">Mood<span className="text-teal-500">Ingo</span></span>
+                <div className="text-xs md:text-sm text-teal-600">Emotional Intelligence AI</div>
             </div>
         </div>
     );
@@ -178,7 +179,7 @@ export default function Hero({ setActiveFeature }) {
             <div className="max-w-7xl mx-auto relative z-10">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                     {/* Left Column - Animated Logo */}
-                    <div className="flex justify-center lg:justify-start">
+                    <div className="flex justify-center ">
                         <AnimatedEmotionLogo />
                     </div>
 
