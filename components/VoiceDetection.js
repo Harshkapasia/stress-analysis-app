@@ -1,14 +1,37 @@
 import { useState, useRef } from 'react';
+import axios from 'axios';
 
 export default function VoiceDetection() {
     const [isRecording, setIsRecording] = useState(false);
     const [detectedMood, setDetectedMood] = useState('');
+    const [transcribedText, setTranscribedText] = useState('');
+    const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState('');
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
 
+    // AssemblyAI API configuration
+    const assemblyBaseUrl = "https://api.assemblyai.com";
+    const assemblyHeaders = {
+        authorization: "c8bd066663fb4673bff02eff99d5bde4",
+    };
+
+    // Akash Chat API configuration
+    const akashClient = axios.create({
+        baseURL: 'https://chatapi.akash.network/api/v1',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer sk-nMngtXzP9DCOd7SnQ1J2Kg'
+        }
+    });
+
     const startRecording = async () => {
         try {
+            // Reset states
+            setDetectedMood('');
+            setTranscribedText('');
+            setError('');
+
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
             const mediaRecorder = new MediaRecorder(stream);
@@ -21,7 +44,7 @@ export default function VoiceDetection() {
                 }
             };
 
-            mediaRecorder.onstop = analyzeMood;
+            mediaRecorder.onstop = processAudio;
 
             mediaRecorder.start();
             setIsRecording(true);
@@ -41,16 +64,108 @@ export default function VoiceDetection() {
         }
     };
 
-    const analyzeMood = () => {
-        // In a real app, we would send the audio data to a backend for analysis
-        // For demonstration purposes, we'll simulate a mood detection response
-        const moods = ['Happy', 'Calm', 'Excited', 'Anxious', 'Neutral'];
-        const randomMood = moods[Math.floor(Math.random() * moods.length)];
+    const processAudio = async () => {
+        try {
+            setIsProcessing(true);
 
-        // Simulate a brief delay for "processing"
-        setTimeout(() => {
-            setDetectedMood(randomMood);
-        }, 1500);
+            // Create audio blob from recorded chunks
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+            // Upload audio to AssemblyAI
+            const formData = new FormData();
+            formData.append('file', audioBlob);
+
+            // Upload the audio file
+            const uploadResponse = await axios.post(`${assemblyBaseUrl}/v2/upload`, audioBlob, {
+                headers: {
+                    ...assemblyHeaders,
+                    'Content-Type': 'application/octet-stream'
+                },
+            });
+
+            const audioUrl = uploadResponse.data.upload_url;
+            console.log("Audio uploaded successfully:", audioUrl);
+
+            // Request transcription
+            const transcriptionResponse = await axios.post(
+                `${assemblyBaseUrl}/v2/transcript`,
+                {
+                    audio_url: audioUrl,
+                    speech_model: "universal",
+                },
+                { headers: assemblyHeaders }
+            );
+
+            const transcriptId = transcriptionResponse.data.id;
+            console.log("Transcription requested, ID:", transcriptId);
+
+            // Poll for transcription results
+            const pollingEndpoint = `${assemblyBaseUrl}/v2/transcript/${transcriptId}`;
+
+            let transcribedText = '';
+            while (true) {
+                const pollingResponse = await axios.get(pollingEndpoint, {
+                    headers: assemblyHeaders,
+                });
+
+                const transcriptionResult = pollingResponse.data;
+
+                if (transcriptionResult.status === "completed") {
+                    console.log("Transcription completed!");
+                    transcribedText = transcriptionResult.text;
+                    setTranscribedText(transcribedText);
+                    break;
+                } else if (transcriptionResult.status === "error") {
+                    throw new Error(`Transcription failed: ${transcriptionResult.error}`);
+                } else {
+                    console.log("Transcription in progress, waiting...");
+                    await new Promise((resolve) => setTimeout(resolve, 3000));
+                }
+            }
+
+            // Now analyze the mood using Akash Chat API
+            await analyzeMood(transcribedText);
+
+        } catch (err) {
+            setError('Error processing audio: ' + err.message);
+            console.error('Error processing audio:', err);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const analyzeMood = async (text) => {
+        try {
+            if (!text || text.trim() === '') {
+                setDetectedMood('No speech detected');
+                return;
+            }
+
+            const response = await akashClient.post(
+                '/chat/completions',
+                {
+                    model: "Meta-Llama-3-1-8B-Instruct-FP8",
+                    messages: [
+                        {
+                            role: "system",
+                            content: "You are an emotion analysis assistant. Analyze the text and determine the emotional state of the speaker. Respond with a single word describing their mood (happy, sad, angry, neutral, etc.)."
+                        },
+                        {
+                            role: "user",
+                            content: text
+                        }
+                    ]
+                }
+            );
+
+            // Extract the response content
+            const content = response.data.choices[0].message.content;
+            setDetectedMood(content);
+
+        } catch (err) {
+            console.error('Error analyzing mood:', err);
+            setError('Error analyzing mood: ' + err.message);
+        }
     };
 
     return (
@@ -71,13 +186,28 @@ export default function VoiceDetection() {
                             <div className="mb-8">
                                 <button
                                     onClick={isRecording ? stopRecording : startRecording}
-                                    className={`w-32 h-32 rounded-full focus:outline-none transition-all duration-300 ${isRecording
-                                        ? 'bg-red-600 animate-pulse'
-                                        : 'bg-green-600 hover:bg-green-500'
+                                    disabled={isProcessing}
+                                    className={`w-32 h-32 rounded-full focus:outline-none transition-all duration-300 ${isProcessing
+                                            ? 'bg-yellow-600 cursor-not-allowed'
+                                            : isRecording
+                                                ? 'bg-red-600 animate-pulse'
+                                                : 'bg-green-600 hover:bg-green-500'
                                         }`}
                                 >
-                                    <span className="sr-only">{isRecording ? 'Stop Recording' : 'Start Recording'}</span>
-                                    {isRecording ? (
+                                    <span className="sr-only">
+                                        {isProcessing
+                                            ? 'Processing'
+                                            : isRecording
+                                                ? 'Stop Recording'
+                                                : 'Start Recording'
+                                        }
+                                    </span>
+                                    {isProcessing ? (
+                                        <svg className="w-16 h-16 mx-auto text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                    ) : isRecording ? (
                                         <svg className="w-16 h-16 mx-auto text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <rect x="6" y="6" width="12" height="12" strokeWidth="2" />
                                         </svg>
@@ -88,9 +218,21 @@ export default function VoiceDetection() {
                                     )}
                                 </button>
                                 <p className="mt-4 text-lg text-gray-300">
-                                    {isRecording ? 'Recording... Click to stop' : 'Tap to start recording your voice'}
+                                    {isProcessing
+                                        ? 'Processing audio...'
+                                        : isRecording
+                                            ? 'Recording... Click to stop'
+                                            : 'Tap to start recording your voice'
+                                    }
                                 </p>
                             </div>
+
+                            {transcribedText && (
+                                <div className="mt-4 p-4 bg-gray-900 bg-opacity-30 border border-gray-800 rounded-lg mb-4">
+                                    <h3 className="text-xl font-semibold text-white mb-2">Transcribed Text</h3>
+                                    <p className="text-gray-300">{transcribedText}</p>
+                                </div>
+                            )}
 
                             {detectedMood && (
                                 <div className="mt-4 p-4 bg-green-900 bg-opacity-30 border border-green-800 rounded-lg">
