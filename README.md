@@ -14,7 +14,7 @@ This is a comprehensive mood analysis application that combines facial expressio
 * **Key Libraries**:
   - face-api.js (v0.22.2) for facial expression detection
   - framer-motion for animations
-  - axios for API calls
+  - axios api for API calls
   - lucide-react for icons
 
 ### Backend (Voice Mood App)
